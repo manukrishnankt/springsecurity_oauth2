@@ -1,5 +1,7 @@
 package com.waves.springsec.config;
 
+import javax.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,7 +11,8 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -41,16 +44,20 @@ public class WebSecurityConfig  extends WebSecurityConfigurerAdapter{
 	protected void configure(HttpSecurity http) throws Exception {
 		//This Method is for Autherization
 		
+		
 		http
-			.csrf()
-			.disable()
-			.authorizeRequests()
-			.antMatchers("/guest/**").permitAll()
-			.antMatchers("/user/**").hasAnyRole("ADMIN", "USER")
-			.antMatchers("/oauth/**").permitAll()
-			.antMatchers("/admin/**").hasRole("ADMIN")
+		.csrf().ignoringRequestMatchers(request -> "/introspect".equals(request.getRequestURI()))
+		.and()
+		.authorizeRequests()
+		.antMatchers("/guest/**").permitAll()
+		.mvcMatchers("/.well-known/jwks.json").permitAll()
+		.antMatchers("/user/**").hasAuthority("SCOPE_read")
+		.antMatchers("/oauth/**").permitAll()
+		.antMatchers("/admin/**").hasAuthority("SCOPE_read")
+		.and().sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+		.and().oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
+		.formLogin();
 			
-			.and().formLogin().permitAll();
 	}
 	
 	@Bean
