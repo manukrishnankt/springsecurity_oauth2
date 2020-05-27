@@ -1,20 +1,14 @@
 package com.waves.springsec.config;
 
-import java.security.KeyPair;
-
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
-import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
-import org.springframework.security.oauth2.provider.token.DefaultAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.TokenStore;
-import org.springframework.security.oauth2.provider.token.store.InMemoryTokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
@@ -22,60 +16,50 @@ import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 @EnableAuthorizationServer
 public class AuthAuthorizationServer extends AuthorizationServerConfigurerAdapter {
 
-	AuthenticationManager authenticationManager;
-	KeyPair keyPair;
-	boolean jwtEnabled;
+	static final String CLIEN_ID = "clientapp";
+	static final String CLIENT_SECRET = "password";
+	static final String GRANT_TYPE_PASSWORD = "password";
+	static final String AUTHORIZATION_CODE = "authorization_code";
+	static final String REFRESH_TOKEN = "refresh_token";
+	static final String IMPLICIT = "implicit";
+	static final String SCOPE_READ = "read";
+	static final String SCOPE_WRITE = "write";
+	static final String TRUST = "trust";
+	static final int ACCESS_TOKEN_VALIDITY_SECONDS = 1*60*60;
+	static final int FREFRESH_TOKEN_VALIDITY_SECONDS = 6*60*60;
 
-	@Override
-	public void configure(AuthorizationServerEndpointsConfigurer endpoints) {
-		endpoints.authenticationManager(this.authenticationManager).tokenStore(tokenStore());
-
-		if (this.jwtEnabled) {
-			endpoints.accessTokenConverter(accessTokenConverter());
-		}
-	}
-
-	@Override
-	public void configure(AuthorizationServerSecurityConfigurer security) throws Exception {
-		security.tokenKeyAccess("permitAll()").checkTokenAccess("isAuthenticated()")
-				.allowFormAuthenticationForClients();
-	}
-
-	@Override
-	public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
-		clients.inMemory().withClient("clientapp").secret("12345")
-				.authorizedGrantTypes("password", "authorization_code", "refresh_token", "implicit")
-				.authorities("CLIENT").scopes("read").resourceIds("oauth2-resource")
-				.redirectUris("http://localhost:8081/login").accessTokenValiditySeconds(120)
-				.refreshTokenValiditySeconds(240000);
-	}
-
-	public AuthAuthorizationServer(AuthenticationConfiguration authenticationConfiguration, KeyPair keyPair,
-			@Value("${security.oauth2.authorizationserver.jwt.enabled:true}") boolean jwtEnabled) throws Exception {
-
-		this.authenticationManager = authenticationConfiguration.getAuthenticationManager();
-		this.keyPair = keyPair;
-		this.jwtEnabled = jwtEnabled;
-	}
-
-	@Bean
-	public TokenStore tokenStore() {
-		if (this.jwtEnabled) {
-			return new JwtTokenStore(accessTokenConverter());
-		} else {
-			return new InMemoryTokenStore();
-		}
-	}
+	@Autowired
+	private AuthenticationManager authenticationManager;
 
 	@Bean
 	public JwtAccessTokenConverter accessTokenConverter() {
 		JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-		converter.setKeyPair(this.keyPair);
-
-		DefaultAccessTokenConverter accessTokenConverter = new DefaultAccessTokenConverter();
-		accessTokenConverter.setUserTokenConverter(new SubjectAttributeUserTokenConverter());
-		converter.setAccessTokenConverter(accessTokenConverter);
-
+		converter.setSigningKey("as466gf");
 		return converter;
+	}
+
+	@Bean
+	public TokenStore tokenStore() {
+		return new JwtTokenStore(accessTokenConverter());
+	}
+
+	@Override
+	public void configure(ClientDetailsServiceConfigurer configurer) throws Exception {
+
+		configurer
+				.inMemory()
+				.withClient(CLIEN_ID)
+				.secret(CLIENT_SECRET)
+				.authorizedGrantTypes(GRANT_TYPE_PASSWORD, AUTHORIZATION_CODE, REFRESH_TOKEN, IMPLICIT )
+				.scopes(SCOPE_READ, SCOPE_WRITE, TRUST)
+				.accessTokenValiditySeconds(ACCESS_TOKEN_VALIDITY_SECONDS)
+				.refreshTokenValiditySeconds(FREFRESH_TOKEN_VALIDITY_SECONDS);
+	}
+
+	@Override
+	public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+		endpoints.tokenStore(tokenStore())
+				.authenticationManager(authenticationManager)
+				.accessTokenConverter(accessTokenConverter());
 	}
 }
